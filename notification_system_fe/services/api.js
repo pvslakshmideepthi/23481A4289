@@ -1,0 +1,15 @@
+import axios from "axios";
+
+const API = axios.create({
+    baseURL: "http://20.244.56.144/evaluation-service/notifications"
+});
+
+API.interceptors.request.use((config) => {
+
+    config.headers.Authorization =
+        `Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJNYXBDbGFpbXMiOnsiYXVkIjoiaHR0cDovLzIwLjI0NC41Ni4xNDQvZXZhbHVhdGlvbi1zZXJ2aWNlIiwiZW1haWwiOiIyMzQ4MWE0Mjg5QGdlY2d1ZGxhdmFsbGVydW1pYy5pbiIsImV4cCI6MTc3ODMxMjI2MywiaWF0IjoxNzc4MzExMzYzLCJpc3MiOiJBZmZvcmQgTWVkaWNhbCBUZWNobm9sb2dpZXMgUHJpdmF0ZSBMaW1pdGVkIiwianRpIjoiMGViY2RjOWQtMzc4ZS00NDgyLTlkZTYtNzg5MjIzNmI5OWJjIiwibG9jYWxlIjoiZW4tSU4iLCJuYW1lIjoicG9uZHVyaSB2ZW5rYXRhIHNhaSBsYWtzaG1pIGRlZXB0aGkiLCJzdWIiOiIyMzMwODg2Yi05N2FlLTRkMWYtOWJjYy0zMWZiMWM3YzNhZDMifSwiZW1haWwiOiIyMzQ4MWE0Mjg5QGdlY2d1ZGxhdmFsbGVydW1pYy5pbiIsIm5hbWUiOiJwb25kdXJpIHZlbmthdGEgc2FpIGxha3NobWkgZGVlcHRoaSIsInJvbGxObyI6IjIzNDgxYTQyODkiLCJhY2Nlc3NDb2RlIjoiZUpkQ3VDIiwiY2xpZW50SUQiOiIyMzMwODg2Yi05N2FlLTRkMWYtOWJjYy0zMWZiMWM3YzNhZDMiLCJjbGllbnRTZWNyZXQiOiJ0UlNtSkRmR0pIY1ZmZGd3In0.eZHJN9T5m4vMCaQ-_QUxsScBEBDN5TofJ3e3knqeW0g`;
+
+    return config;
+});
+
+export default API;

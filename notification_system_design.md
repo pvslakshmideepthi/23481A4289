@@ -1521,4 +1521,434 @@
         ```
 
         No inbuilt console logging should be used.
-    
+    ---
+
+# Stage 5 — Reliable and Scalable Bulk Notification Architecture
+
+    # Existing Pseudocode
+
+    ```python
+    function notify_all(student_ids: array, message: string):
+
+        for student_id in student_ids:
+
+            send_email(student_id, message)
+
+            save_to_db(student_id, message)
+
+            push_to_app(student_id, message)
+    ```
+
+    ---
+
+    # Problems in the Existing Implementation
+
+    The current implementation has several scalability and reliability issues.
+
+    ---
+
+    # 1. Sequential Processing
+
+    The notifications are processed one student at a time.
+
+    For 50,000 students:
+
+    - Processing becomes extremely slow
+    - API response time increases significantly
+
+    ---
+
+    # 2. No Retry Mechanism
+
+    If:
+
+    ```text
+    send_email()
+    ```
+
+    fails for some students, those notifications are permanently lost.
+
+    This causes inconsistency.
+
+    ---
+
+    # 3. No Fault Tolerance
+
+    A single failure may interrupt the entire notification process.
+
+    Example:
+
+    ```text
+    Email service crashes midway
+    ```
+
+    Remaining students may never receive notifications.
+
+    ---
+
+    # 4. Tight Coupling
+
+    The following operations are tightly coupled:
+
+    - Database save
+    - Email sending
+    - Push notification
+
+    If one fails, the entire flow becomes unstable.
+
+    ---
+
+    # 5. No Parallel Processing
+
+    All tasks execute synchronously.
+
+    This wastes system resources and reduces throughput.
+
+    ---
+
+    # 6. No Queueing System
+
+    Sudden spikes such as:
+
+    ```text
+    Notify All → 50,000 students
+    ```
+
+    can overload:
+
+    - Application servers
+    - Database
+    - Email service
+
+    ---
+
+    # 7. No Monitoring or Recovery
+
+    Failed operations are not tracked properly.
+
+    No retry queue or dead-letter queue exists.
+
+    ---
+
+    # What Happens if Email Fails for 200 Students?
+
+    If:
+
+    ```text
+    send_email()
+    ```
+
+    fails midway for 200 students:
+
+    - Those students may not receive emails
+    - Database entries may already exist
+    - In-app notifications may already be sent
+    - System becomes inconsistent
+
+    Without retries or failure tracking, recovery becomes difficult.
+
+    ---
+
+    # Recommended Solution
+
+    Use an asynchronous event-driven architecture with:
+
+    1. Message Queue
+    2. Worker Services
+    3. Retry Mechanism
+    4. Dead Letter Queue (DLQ)
+    5. Batch Processing
+    6. Independent Services
+
+    ---
+
+    # Recommended Technologies
+
+    | Component | Suggested Technology |
+    |---|---|
+    | Queue System | RabbitMQ / Kafka |
+    | Cache | Redis |
+    | Real-time Push | Socket.IO |
+    | Database | PostgreSQL |
+    | Workers | Background worker services |
+
+    ---
+
+    # Improved Architecture
+
+    ```text
+    HR/Admin Clicks "Notify All"
+                ↓
+    Notification Service
+                ↓
+    Save Notification Metadata
+                ↓
+    Publish Jobs to Queue
+                ↓
+    -----------------------------------
+    |               |                |
+    Email Worker   Push Worker   DB Worker
+    -----------------------------------
+                ↓
+    Retry Queue / Dead Letter Queue
+    ```
+
+    ---
+
+    # Why Queue-Based Architecture?
+
+    Queues help:
+
+    - Handle traffic spikes
+    - Process tasks asynchronously
+    - Improve reliability
+    - Enable retries
+    - Prevent server overload
+
+    ---
+
+    # Should Saving to DB and Sending Email Happen Together?
+
+    No.
+
+    These operations should not happen inside a single synchronous transaction.
+
+    ---
+
+    # Why?
+
+    Email delivery depends on external services which may fail.
+
+    If email fails:
+
+    - Database transaction should not rollback
+    - Notifications should still exist in DB
+
+    Therefore:
+
+    - DB write should succeed independently
+    - Email sending should happen asynchronously
+
+    ---
+
+    # Recommended Approach
+
+    ## Step 1
+
+    Save notification metadata to DB.
+
+    ---
+
+    # Step 2
+
+    Publish notification jobs to queue.
+
+    ---
+
+    # Step 3
+
+    Worker services process jobs independently.
+
+    ---
+
+    # Benefits
+
+    | Benefit | Description |
+    |---|---|
+    | Reliability | Failures can be retried |
+    | Scalability | Workers can scale horizontally |
+    | Faster API response | Async processing |
+    | Better fault isolation | Services fail independently |
+
+    ---
+
+    # Retry Mechanism
+
+    If email sending fails:
+
+    - Retry automatically
+    - Exponential backoff can be used
+
+    Example:
+
+    ```text
+    Retry after:
+    1 sec → 5 sec → 30 sec
+    ```
+
+    ---
+
+    # Dead Letter Queue (DLQ)
+
+    After maximum retries:
+
+    - Failed jobs move to DLQ
+    - Manual inspection becomes possible
+
+    ---
+
+    # Batch Processing
+
+    Instead of processing 50,000 students individually:
+
+    - Split students into smaller batches
+
+    Example:
+
+    ```text
+    1000 students per batch
+    ```
+
+    Benefits:
+
+    - Better memory usage
+    - Improved throughput
+    - Easier retry handling
+
+    ---
+
+    # Revised Scalable Pseudocode
+
+    ## Notification Service
+
+    ```python
+    function notify_all(student_ids, message, notification_type):
+
+        notification_batch_id = generate_batch_id()
+
+        save_batch_metadata(
+            notification_batch_id,
+            message,
+            notification_type
+        )
+
+        batches = chunk(student_ids, 1000)
+
+        for batch in batches:
+
+            publish_to_queue({
+                "batch_id": notification_batch_id,
+                "student_ids": batch,
+                "message": message,
+                "type": notification_type
+            })
+
+        return "Notification jobs queued successfully"
+    ```
+
+    ---
+
+    # Worker Service
+
+    ```python
+    function notification_worker(job):
+
+        for student_id in job.student_ids:
+
+            try:
+
+                save_notification_to_db(
+                    student_id,
+                    job.message,
+                    job.type
+                )
+
+                send_email(
+                    student_id,
+                    job.message
+                )
+
+                push_realtime_notification(
+                    student_id,
+                    job.message
+                )
+
+                log_success(student_id)
+
+            except Exception as error:
+
+                retry_job(job)
+
+                log_error(error)
+    ```
+
+    ---
+
+    # Additional Optimizations
+
+    ---
+
+    # 1. Parallel Workers
+
+    Multiple worker instances can process jobs simultaneously.
+
+    Benefits:
+
+    - Faster processing
+    - Horizontal scalability
+
+    ---
+
+    # 2. Redis Cache
+
+    Unread notifications can be cached for faster access.
+
+    ---
+
+    # 3. WebSockets
+
+    Use Socket.IO for real-time in-app notifications.
+
+    ---
+
+    # 4. Monitoring and Metrics
+
+    Track:
+
+    - Failed jobs
+    - Queue size
+    - Email success rate
+    - Worker health
+
+    Tools:
+
+    - Prometheus
+    - Grafana
+
+    ---
+
+    # Computation and Performance Benefits
+
+    | Strategy | Benefit |
+    |---|---|
+    | Queues | Async scalable processing |
+    | Batching | Reduced overhead |
+    | Workers | Parallel execution |
+    | Retries | Improved reliability |
+    | DLQ | Failure recovery |
+    | WebSockets | Real-time delivery |
+
+    ---
+
+    # Logging Middleware Integration
+
+    The custom logging middleware should log:
+
+    - Queue publish events
+    - Worker processing status
+    - Email failures
+    - Retry attempts
+    - Push notification failures
+    - Dead letter queue events
+
+    Example logs:
+
+    ```text
+    INFO  → Batch notification queued
+    INFO  → Email sent successfully
+    WARN  → Retry attempt initiated
+    ERROR → Email delivery failed
+    ERROR → Message moved to DLQ
+    ```
+
+    No inbuilt console logging should be used.

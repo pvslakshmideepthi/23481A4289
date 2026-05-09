@@ -1099,3 +1099,426 @@
     ```
 
     No inbuilt console logging should be used.
+---
+
+# Stage 4 — Performance Improvement and Scalability Strategy
+
+        # Problem Statement
+
+        Currently, notifications are being fetched from the database every time a student loads or refreshes the page.
+
+        With:
+
+        - 50,000 students
+        - Millions of notifications
+        - Frequent page refreshes
+
+        the database becomes overloaded, resulting in:
+
+        - Slow API responses
+        - High DB CPU usage
+        - Increased latency
+        - Poor user experience
+
+        ---
+
+        # Recommended Solution
+
+        A combination of the following strategies should be used to improve performance and scalability:
+
+        1. Redis Caching
+        2. WebSockets for Real-Time Updates
+        3. Pagination
+        4. Read Replicas
+        5. Queue-Based Architecture
+        6. Database Indexing
+        7. CDN and Compression
+        8. Lazy Loading
+
+        ---
+
+        # 1. Redis Caching
+
+        ## Solution
+
+        Use Redis to cache frequently accessed notifications.
+
+        ---
+
+        # Architecture
+
+        ```text
+        Frontend Client
+            ↓
+        Redis Cache
+            ↓
+        PostgreSQL Database
+        ```
+
+        ---
+
+        # How It Works
+
+        - Frequently requested notifications are stored in Redis.
+        - Future requests are served directly from cache.
+        - Database load is reduced significantly.
+
+        ---
+
+        # Example Flow
+
+        ```text
+        Student opens dashboard
+                ↓
+        Check Redis Cache
+                ↓
+        Cache Hit → Return Data
+        Cache Miss → Fetch from DB → Store in Redis
+        ```
+
+        ---
+
+        # Benefits
+
+        | Benefit | Description |
+        |---|---|
+        | Faster responses | Reduced DB access |
+        | Lower DB load | Fewer repeated queries |
+        | Better scalability | Handles large traffic |
+
+        ---
+
+        # Tradeoffs
+
+        | Advantage | Disadvantage |
+        |---|---|
+        | Very fast reads | Additional infrastructure |
+        | Reduced DB pressure | Cache invalidation complexity |
+        | Improved user experience | Increased memory usage |
+
+        ---
+
+        # 2. WebSockets for Real-Time Notifications
+
+        ## Problem
+
+        Currently the frontend repeatedly fetches notifications using API calls.
+
+        This creates unnecessary traffic.
+
+        ---
+
+        # Solution
+
+        Use WebSockets (Socket.IO) for real-time notification delivery.
+
+        ---
+
+        # How It Works
+
+        ```text
+        Backend sends notification instantly
+                ↓
+        Student receives update immediately
+                ↓
+        No repeated polling required
+        ```
+
+        ---
+
+        # Benefits
+
+        | Benefit | Description |
+        |---|---|
+        | Instant updates | Real-time communication |
+        | Reduced API calls | Lower server load |
+        | Better UX | Faster notification delivery |
+
+        ---
+
+        # Tradeoffs
+
+        | Advantage | Disadvantage |
+        |---|---|
+        | Real-time delivery | Persistent connections required |
+        | Lower polling overhead | Slightly more complex setup |
+
+        ---
+
+        # 3. Pagination
+
+        ## Problem
+
+        Fetching all notifications at once increases:
+
+        - Response size
+        - Memory usage
+        - Query time
+
+        ---
+
+        # Solution
+
+        Use pagination.
+
+        Example:
+
+        ```http
+        GET /api/notifications?page=1&limit=20
+        ```
+
+        ---
+
+        # Benefits
+
+        | Benefit | Description |
+        |---|---|
+        | Smaller responses | Faster loading |
+        | Reduced DB workload | Efficient queries |
+        | Improved frontend rendering | Less memory usage |
+
+        ---
+
+        # Tradeoffs
+
+        | Advantage | Disadvantage |
+        |---|---|
+        | Better performance | Multiple API calls required |
+
+        ---
+
+        # 4. Read Replicas
+
+        ## Solution
+
+        Use read replicas for read-heavy operations.
+
+        ---
+
+        # Architecture
+
+        ```text
+                        Primary DB
+                    /         \
+            Read Replica 1   Read Replica 2
+        ```
+
+        ---
+
+        # Benefits
+
+        | Benefit | Description |
+        |---|---|
+        | Distributes traffic | Prevents DB overload |
+        | Better scalability | Improved read performance |
+
+        ---
+
+        # Tradeoffs
+
+        | Advantage | Disadvantage |
+        |---|---|
+        | Scales reads efficiently | Replication lag possible |
+
+        ---
+
+        # 5. Queue-Based Architecture
+
+        ## Problem
+
+        Bulk notifications create sudden spikes in DB and email traffic.
+
+        ---
+
+        # Solution
+
+        Use message queues like:
+
+        - RabbitMQ
+        - Kafka
+
+        ---
+
+        # Architecture
+
+        ```text
+        Notification Request
+                ↓
+        Message Queue
+                ↓
+        Worker Services
+                ↓
+        DB Save + Push Notification + Email
+        ```
+
+        ---
+
+        # Benefits
+
+        | Benefit | Description |
+        |---|---|
+        | Async processing | Faster API response |
+        | Better reliability | Retry support |
+        | Handles spikes | Improved scalability |
+
+        ---
+
+        # Tradeoffs
+
+        | Advantage | Disadvantage |
+        |---|---|
+        | Reliable processing | More infrastructure complexity |
+
+        ---
+
+        # 6. Database Indexing
+
+        ## Solution
+
+        Use indexes on frequently queried columns.
+
+        Example:
+
+        ```sql
+        CREATE INDEX idx_notifications_student_read_created
+        ON notifications(student_id, is_read, created_at DESC);
+        ```
+
+        ---
+
+        # Benefits
+
+        | Benefit | Description |
+        |---|---|
+        | Faster queries | Reduced scan time |
+        | Efficient sorting | Improved response time |
+
+        ---
+
+        # Tradeoffs
+
+        | Advantage | Disadvantage |
+        |---|---|
+        | Faster reads | Slower writes |
+        | Better filtering | Additional storage usage |
+
+        ---
+
+        # 7. Compression and CDN
+
+        ## Compression
+
+        Use:
+
+        - Gzip
+        - Brotli
+
+        to reduce response payload size.
+
+        ---
+
+        # CDN
+
+        Static frontend assets can be served using CDN.
+
+        Benefits:
+
+        - Faster loading
+        - Reduced server bandwidth
+
+        ---
+
+        # Tradeoffs
+
+        | Advantage | Disadvantage |
+        |---|---|
+        | Faster delivery | CDN configuration required |
+
+        ---
+
+        # 8. Lazy Loading and Infinite Scroll
+
+        Instead of loading all notifications at once:
+
+        - Load notifications gradually
+        - Fetch more on scroll
+
+        ---
+
+        # Benefits
+
+        | Benefit | Description |
+        |---|---|
+        | Improved frontend performance | Reduced initial load |
+        | Better user experience | Faster rendering |
+
+        ---
+
+        # Tradeoffs
+
+        | Advantage | Disadvantage |
+        |---|---|
+        | Efficient rendering | Slightly complex frontend logic |
+
+        ---
+
+        # Recommended Final Architecture
+
+        ```text
+        Frontend Client
+            ↓
+        Load Balancer
+            ↓
+        Application Servers
+            ↓
+        Redis Cache
+            ↓
+        PostgreSQL Primary DB
+            ↓
+        Read Replicas
+
+        Real-Time Notifications:
+        Socket.IO/WebSockets
+
+        Async Processing:
+        RabbitMQ/Kafka + Worker Services
+        ```
+
+        ---
+
+        # Overall Performance Improvements
+
+        | Strategy | Main Benefit |
+        |---|---|
+        | Redis | Reduced DB load |
+        | WebSockets | Real-time updates |
+        | Pagination | Smaller responses |
+        | Read Replicas | Scalable reads |
+        | Queues | Reliable async processing |
+        | Indexes | Faster queries |
+        | Compression | Reduced payload size |
+
+        ---
+
+        # Logging Middleware Integration
+
+        The custom logging middleware should monitor:
+
+        - Slow API requests
+        - Cache hits/misses
+        - DB query execution
+        - Queue failures
+        - WebSocket delivery errors
+        - Read replica failures
+
+        Example logs:
+
+        ```text
+        INFO  → Cache hit for student notifications
+        WARN  → Slow query detected
+        ERROR → Redis connection failed
+        ERROR → Queue processing failed
+        ```
+
+        No inbuilt console logging should be used.
+    

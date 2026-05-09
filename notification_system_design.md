@@ -1952,3 +1952,120 @@
     ```
 
     No inbuilt console logging should be used.
+---
+
+# Stage 6 — Priority Inbox System
+
+    # Objective
+
+    The system should display the top 10 most important unread notifications based on:
+
+    1. Notification type priority
+    2. Recency
+
+    ---
+
+    # Priority Rules
+
+    | Notification Type | Weight |
+    |---|---|
+    | Placement | 3 |
+    | Result | 2 |
+    | Event | 1 |
+
+    ---
+
+    # Priority Calculation
+
+    Priority score is calculated using:
+
+    ```text
+    priority_score =
+    (type_weight * 1000) + recency_score
+    ```
+
+    More recent notifications receive higher recency scores.
+
+    ---
+
+    # Data Structure Used
+
+    A Min Heap (Priority Queue) is used to efficiently maintain the Top 10 notifications.
+
+    ---
+
+    # Why Min Heap?
+
+    Benefits:
+
+    - Efficient insertion
+    - Efficient removal
+    - Maintains top notifications dynamically
+
+    ---
+
+    # Complexity Analysis
+
+    If:
+
+    ```text
+    n = total notifications
+    k = top notifications required
+    ```
+
+    Then:
+
+    ```text
+    Time Complexity = O(n log k)
+    ```
+
+    Since:
+
+    ```text
+    k = 10
+    ```
+
+    performance remains highly efficient.
+
+    ---
+
+    # Efficient Maintenance of Top 10
+
+    As new notifications arrive:
+
+    1. Compute priority score
+    2. Insert into heap
+    3. If heap size exceeds 10:
+    remove smallest element
+
+    This maintains the top 10 efficiently in real-time.
+
+    ---
+
+    # Advantages of This Approach
+
+    | Advantage | Description |
+    |---|---|
+    | Fast processing | Efficient heap operations |
+    | Scalable | Works for millions of notifications |
+    | Dynamic updates | Handles incoming notifications |
+    | Low memory usage | Stores only top 10 |
+
+    ---
+
+    # Logging Middleware Usage
+
+    The custom logging middleware should log:
+
+    - API fetch status
+    - Priority calculation failures
+    - Heap processing errors
+    - Notification parsing errors
+
+    Example logs:
+
+    ```text
+    INFO  → Notifications fetched successfully
+    INFO  → Top 10 notifications generated
+    ERROR → Failed to parse timestamp
+    ```
